@@ -1,4 +1,5 @@
 """Defines basic data types"""
+import abc
 import datetime
 import decimal
 import typing
@@ -23,9 +24,13 @@ class DataAttribute(typing.Protocol):
         ...
 
 
-class DataType(dict[str, DataAttribute | BaseAttribute]):
+class DataType(dict[str, DataAttribute | BaseAttribute], abc.ABC):
     """Datatype definition."""
-    pass
+    @property
+    @abc.abstractmethod
+    def get_name(self) -> str:
+        """Returns the table name"""
+        raise NotImplementedError()
 
 
 class DataItem(typing.Protocol):
