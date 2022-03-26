@@ -1,12 +1,49 @@
 """PostgreSQL Driver wrapper"""
+import contextlib
+
 import psycopg
 
 from ..datatypes import *
+from ..errors import ConnectionException, DatabaseException, DataValidationException
+
+
+@contextlib.contextmanager
+def context_manager():
+    """
+    Manages standard PostgreSQL errors for encapsulating in generic database errors.
+
+    Dynamically creates new class that inherits from both psycopg errors and framework errors.
+    """
+    try:
+        yield
+    except (psycopg.errors.DataError, psycopg.errors.OperationalError, psycopg.errors.IntegrityError,
+            psycopg.errors.ProgrammingError, psycopg.errors.NotSupportedError) as err:
+        # Errors matching DataValidationException
+        class PGException(err.__class__, DataValidationException):
+            def __init__(self, base_err: err.__class__, *args):
+                super().__init__(*base_err.args, *args)
+
+        raise PGException(err)
+    except psycopg.errors.DatabaseError as err:
+        # DatabaseErrors
+        class PGException(err.__class__, DatabaseException):
+            def __init__(self, base_err: psycopg.errors.DatabaseError, *args):
+                super().__init__(*base_err.args, *args)
+
+        raise PGException(err)
+    except psycopg.errors.Error as err:
+        # Generic Error
+        class PGException(err.__class__, ConnectionException):
+            def __init__(self, base_err: err.__class__, *args):
+                super().__init__(*base_err.args, *args)
+
+        raise PGException(err)
 
 
 class PGCursor(psycopg.Cursor):
     """Manage PostgreSQL cursor"""
 
+    @context_manager()
     def insert(self, item: DataItem):
         """
         Insert 1 data item into the database.
@@ -18,6 +55,7 @@ class PGCursor(psycopg.Cursor):
         sql = f"INSERT INTO {item.data_type().get_name}({attr_list}) VALUES({attr_format})"
         self.execute(sql, item.to_database_dict())
 
+    @context_manager()
     def insert_many(self, items: list[DataItem]):
         """
         Insert multiple DataItems of the same type into the database.
@@ -29,6 +67,7 @@ class PGCursor(psycopg.Cursor):
         sql = f"INSERT INTO {data_type.get_name}({attr_list}) VALUES({attr_format})"
         self.executemany(sql, [i.to_database_dict() for i in items])
 
+    @context_manager()
     def query(
             self,
             item_type: DataItem,
