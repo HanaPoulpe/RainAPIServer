@@ -1,5 +1,6 @@
 """PostgreSQL Driver wrapper"""
 import contextlib
+import logging
 
 import psycopg
 
@@ -14,34 +15,41 @@ def context_manager():
 
     Dynamically creates new class that inherits from both psycopg errors and framework errors.
     """
+    logger = logging.getLogger()
+
     try:
         yield
     except (psycopg.errors.DataError, psycopg.errors.OperationalError, psycopg.errors.IntegrityError,
             psycopg.errors.ProgrammingError, psycopg.errors.NotSupportedError) as err:
         # Errors matching DataValidationException
-        class PGException(err.__class__, DataValidationException):
-            def __init__(self, base_err: err.__class__, *args):
-                super().__init__(*base_err.args, *args)
+        logger.error(err)
 
-        raise PGException(err)
+        raise DataValidationException(err)
     except psycopg.errors.DatabaseError as err:
         # DatabaseErrors
-        class PGException(err.__class__, DatabaseException):
-            def __init__(self, base_err: psycopg.errors.DatabaseError, *args):
-                super().__init__(*base_err.args, *args)
+        logger.error(err)
 
-        raise PGException(err)
+        raise DatabaseException(err)
     except psycopg.errors.Error as err:
         # Generic Error
-        class PGException(err.__class__, ConnectionException):
-            def __init__(self, base_err: err.__class__, *args):
-                super().__init__(*base_err.args, *args)
+        logger.error(err)
 
-        raise PGException(err)
+        raise ConnectionException(err)
 
 
-class PGCursor(psycopg.Cursor):
+class PGCursor:
     """Manage PostgreSQL cursor"""
+
+    def __init__(self, cursor: psycopg.cursor.Cursor):
+        self._cursor = cursor
+
+    @context_manager()
+    def __enter__(self):
+        self._cursor.__enter__()
+
+    @context_manager()
+    def __exit__(self, exc_type, exc_value, trace):
+        self._cursor.__exit__(exc_type, exc_value, trace)
 
     @context_manager()
     def insert(self, item: DataItem):
@@ -53,7 +61,7 @@ class PGCursor(psycopg.Cursor):
         # Uses for loop to ensure attributes list and values are in the same order
         attr_list, attr_format = self.format_keys(item.data_type())
         sql = f"INSERT INTO {item.data_type().get_name}({attr_list}) VALUES({attr_format})"
-        self.execute(sql, item.to_database_dict())
+        self._cursor.execute(sql, item.to_database_dict())
 
     @context_manager()
     def insert_many(self, items: list[DataItem]):
@@ -65,7 +73,7 @@ class PGCursor(psycopg.Cursor):
         data_type = items[0].data_type()
         attr_list, attr_format = self.format_keys(data_type)
         sql = f"INSERT INTO {data_type.get_name}({attr_list}) VALUES({attr_format})"
-        self.executemany(sql, [i.to_database_dict() for i in items])
+        self._cursor.executemany(sql, [i.to_database_dict() for i in items])
 
     @context_manager()
     def query(
@@ -81,6 +89,21 @@ class PGCursor(psycopg.Cursor):
         :return: An list of DataItems
         """
         raise NotImplementedError()
+
+    def sanitizer(
+            self,
+            _: DataAttribute | BaseAttribute
+    ) -> DataAttribute | BaseAttribute:
+        """
+        Input sanitize is natively provided by psycopg execute methods.
+        This method is present to complete Cursor implementation.
+        """
+        pass
+
+    @context_manager()
+    def close(self):
+        """Closes the cursor"""
+        self._cursor.close()
 
     @staticmethod
     def format_keys(item: DataType) -> typing.Tuple[str, str]:
@@ -101,4 +124,22 @@ class PGCursor(psycopg.Cursor):
 
 
 class PGConnection(psycopg.Connection):
-    """Manage PostgreSQL"""
+    """Manage PostgreSQL Connection"""
+
+    @context_manager()
+    def __enter__(self) -> PGCursor:
+        self._active_cursor = PGCursor(self.cursor())
+        return self._active_cursor
+
+    @context_manager()
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self._active_cursor.close()
+        self.close()
+
+    @context_manager()
+    def cursor(self):
+        return PGCursor(self.cursor())
+
+    @context_manager()
+    def close(self):
+        self.close()
