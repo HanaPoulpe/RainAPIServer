@@ -26,9 +26,9 @@ class DataAttribute(typing.Protocol):
 
 class DataType(dict[str, DataAttribute | BaseAttribute], abc.ABC):
     """Datatype definition."""
-    @property
+    @classmethod
     @abc.abstractmethod
-    def get_name(self) -> str:
+    def get_table_name(cls) -> str:
         """Returns the table name"""
         raise NotImplementedError()
 

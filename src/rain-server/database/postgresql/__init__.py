@@ -123,12 +123,20 @@ class PGCursor:
         return ",".join(attr_list), ",".join(attr_format)
 
 
-class PGConnection(psycopg.Connection):
+class PGConnection:
     """Manage PostgreSQL Connection"""
+    def __init__(self, *args, **kwargs):
+        """Pass psycopg connection arguments"""
+        self.__args = args
+        self.__kwargs = kwargs
+        self.__connection = None
 
     @context_manager()
     def __enter__(self) -> PGCursor:
-        self._active_cursor = PGCursor(self.cursor())
+        if not self.__connection:
+            self.open()
+
+        self._active_cursor = PGCursor(self.__connection.cursor())
         return self._active_cursor
 
     @context_manager()
@@ -138,8 +146,13 @@ class PGConnection(psycopg.Connection):
 
     @context_manager()
     def cursor(self):
-        return PGCursor(self.cursor())
+        return PGCursor(self.__connection.cursor())
 
     @context_manager()
     def close(self):
-        self.close()
+        self.__connection.close()
+
+    @context_manager()
+    def open(self):
+        if not self.__connection:
+            self.__connection = psycopg.connect(*self.__args, **self.__kwargs)

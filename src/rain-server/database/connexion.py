@@ -91,3 +91,7 @@ class Connection(typing.Protocol):
     def close(self):
         """Closes the database connection"""
         ...
+
+    def open(self):
+        """Opens the database connection"""
+        ...

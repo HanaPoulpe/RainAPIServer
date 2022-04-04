@@ -5,38 +5,75 @@ import typing
 
 import strawberry
 
+from database.datatypes import *
+
 
 @strawberry.type
-class SensorLocation:
+class SensorLocation(DataType):
     """Location of the sensor"""
     location_id: strawberry.ID("sensor_location")
     location_name: str
 
+    @classmethod
+    def get_table_name(cls) -> str:
+        return "d_locations"
+
+    def to_attribute_tuple(self) -> typing.Tuple[typing.Type[BaseAttribute], BaseAttribute]:
+        return str, self.id
+
+    def to_database_dict(self) -> dict[str, DataAttribute | BaseAttribute]:
+        return {
+            "location_id": self.id,
+            "location_name": self.location_name,
+        }
+
 
 @strawberry.type
-class MeasurementType:
-    """Defines a measurement"""
-    id: strawberry.ID("measurement_type")
-    name: str
-    unit: str
-
-
-@strawberry.type
-class Sensor:
+class Sensor(DataType):
     """Description of the sensor"""
     id: strawberry.ID("sensor")
     name: str
     location: SensorLocation
-    address: str
+
+    @classmethod
+    def get_table_name(cls) -> str:
+        return "d_sensors"
+
+    def to_attribute_tuple(self) -> typing.Tuple[typing.Type[BaseAttribute], BaseAttribute]:
+        return str, self.id
+
+    def to_database_dict(self) -> dict[str, DataAttribute | BaseAttribute]:
+        return {
+            "sensor_id": self.id,
+            "location_id": self.location,
+            "sensor_name": self.sensor_name,
+        }
 
 
 @strawberry.type
-class SensorMeasurement:
+class SensorMeasurement(DataType):
     """Measurement"""
     sensor: Sensor
-    measurement_type: MeasurementType
+    measurement_name: str
+    unit: str
     timestamp: datetime.datetime
     value: decimal.Decimal | int | datetime.datetime | datetime.timedelta
+
+    @classmethod
+    def get_table_name(cls) -> str:
+        return "d_measurements"
+
+    def to_attribute_tuple(self) -> typing.Tuple[typing.Type[BaseAttribute], BaseAttribute]:
+        return str, f"{self.sensor.id}#{self.measurement_name}#{self.timestamp.isoformat()}"
+
+    def to_database_dict(self) -> dict[str, DataAttribute | BaseAttribute]:
+        return {
+            "sensor_id": self.sensor.id,
+            "measurement_name": self.measurement_name,
+            "unit": str,
+            "reporting_date": self.timestamp,
+            "measurement_value": decimal.Decimal(self.measurement_value)
+        }
 
 
 @strawberry.type
