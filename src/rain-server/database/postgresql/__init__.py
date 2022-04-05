@@ -79,7 +79,7 @@ class PGCursor:
     def query(
             self,
             item_type: DataItem,
-            filters: DataType
+            filters: dict[str, BaseAttribute]
     ) -> typing.Iterable[DataItem]:
         """
         Find all Items matching the filter.

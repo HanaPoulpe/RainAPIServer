@@ -42,7 +42,7 @@ class Cursor(typing.Protocol):
     def query(
             self,
             item_type: T,
-            filters: datatypes.DataType
+            filters: dict[str, datatypes.BaseAttribute],
     ) -> typing.Iterable[datatypes.DataItem]:
         """
         Find all Items matching the filter.

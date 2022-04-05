@@ -3,9 +3,12 @@ import datetime
 import decimal
 import typing
 
+import Measurement as Measurement
 import strawberry
 
 from database.datatypes import *
+
+from .configuration import get_configuration
 
 
 @strawberry.type
@@ -55,7 +58,6 @@ class SensorMeasurement(DataType):
     """Measurement"""
     sensor: Sensor
     measurement_name: str
-    unit: str
     timestamp: datetime.datetime
     value: decimal.Decimal | int | datetime.datetime | datetime.timedelta
 
@@ -107,7 +109,24 @@ class Mutation:
         :param measurements: Map of MeasurementType.name -> Value as Decimal or ISO8601 timestamp
         :return: List of SensorMeasurement
         """
-        raise NotImplementedError()
+        config = get_configuration()
+
+        with config.database as cursor:
+            sensor = next(iter(cursor.query(Sensor, {"sensor_id": sensor})))
+            timestamp = datetime.datetime.fromisoformat(timestamp)
+
+            measurements = [
+                SensorMeasurement(
+                    sensor=sensor,
+                    measurement_name=m,
+                    timestamp=timestamp,
+                    value=v,
+                ) for m, v in measurements.items()
+            ]
+
+            cursor.insert_many(measurements)
+
+        return measurements
 
 
 schema = strawberry.Schema(query=Query, mutation=Mutation)
