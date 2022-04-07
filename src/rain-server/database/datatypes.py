@@ -48,6 +48,15 @@ class DataItem(typing.Protocol):
         """
         ...
 
+    @classmethod
+    def from_query(cls, item: dict[str, BaseAttribute]) -> 'DataItem':
+        """
+        Instantiates a new DataItem from query result.
+
+        :param item: Mapping of attributes -> values
+        """
+        ...
+
 
 def convert(value: DataAttribute | BaseAttribute) -> typing.Tuple[typing.Type[BaseAttribute],
                                                                   BaseAttribute]:

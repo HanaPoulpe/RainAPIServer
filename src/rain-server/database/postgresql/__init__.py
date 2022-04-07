@@ -3,6 +3,7 @@ import contextlib
 import logging
 
 import psycopg
+import psycopg.rows
 
 from ..datatypes import *
 from ..errors import ConnectionException, DatabaseException, DataValidationException
@@ -72,7 +73,7 @@ class PGCursor:
         """
         data_type = items[0].data_type()
         attr_list, attr_format = self.format_keys(data_type)
-        sql = f"INSERT INTO {data_type.get_name}({attr_list}) VALUES({attr_format})"
+        sql = f"INSERT INTO {data_type.get_table_name()}({attr_list}) VALUES({attr_format})"
         self._cursor.executemany(sql, [i.to_database_dict() for i in items])
 
     @context_manager()
@@ -88,7 +89,11 @@ class PGCursor:
         :param filters: list of attributes name -> values.
         :return: An list of DataItems
         """
-        raise NotImplementedError()
+        flt = " AND ".join([f"\"{k}\" = %s" for k in filters.keys()])
+        query = f"SELECT * FROM {item_type.data_type().get_table_name()} " \
+                f"WHERE {flt}"
+        self._cursor.execute(query, filters)
+        return [item_type.from_query(r) for r in self._cursor.fetchall()]
 
     def sanitizer(
             self,
@@ -117,7 +122,7 @@ class PGCursor:
         """
         attr_list, attr_format = list(), list()
         for k in item.keys():
-            attr_list.append(k)
+            attr_list.append(f'"{k}"')
             attr_format.append(f"%({k})s")
 
         return ",".join(attr_list), ",".join(attr_format)
@@ -136,7 +141,9 @@ class PGConnection:
         if not self.__connection:
             self.open()
 
-        self._active_cursor = PGCursor(self.__connection.cursor())
+        self._active_cursor = PGCursor(self.__connection.cursor(
+            row_factory=psycopg.rows.dict_row
+        ))
         return self._active_cursor
 
     @context_manager()
