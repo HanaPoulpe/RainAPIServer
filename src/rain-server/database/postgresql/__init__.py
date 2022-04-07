@@ -127,6 +127,10 @@ class PGCursor:
 
         return ",".join(attr_list), ",".join(attr_format)
 
+    @property
+    def cursor(self) -> psycopg.Cursor:
+        return self._cursor
+
 
 class PGConnection:
     """Manage PostgreSQL Connection"""

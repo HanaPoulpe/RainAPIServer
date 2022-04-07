@@ -1,7 +1,9 @@
 """Manage the application configuration"""
+import logging
 import typing
 
 from .database import Connection
+from .version import APPLICATION_ID
 
 
 class __Configuration:
@@ -15,6 +17,10 @@ class __Configuration:
     def __init__(self):
         """Set up the default configuration."""
         self.database: Connection | None = None
+        self.logger = logging.getLogger(APPLICATION_ID)
+
+        # PostgreSQL configuration
+        self.pg_schema: str | None = None
 
         self.instance = self
 
