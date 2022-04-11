@@ -1,4 +1,6 @@
 """Defines steps for database setup and upgrade."""
+import os.path
+
 import psycopg.errors
 
 from ...configuration import get_configuration
@@ -9,7 +11,7 @@ from . import PGConnection
 CURRENT_VERSION = "0.0"
 
 
-def check_tables(*, con: PGConnection) -> str:
+def check_tables(*, con: PGConnection) -> str | None:
     """
     Checks if the tables are created.
 
@@ -23,7 +25,7 @@ def check_tables(*, con: PGConnection) -> str:
     logger.info("Checking o_applications...")
     if not table_exists("o_applications"):
         logger.warning("Application tables not found.")
-        return ""
+        return None
 
     logger.info("Checking application tables version...")
     cur = con.cursor().cursor
@@ -36,10 +38,10 @@ def check_tables(*, con: PGConnection) -> str:
             logger.info("Found application version %s", ver["table_version"])
             return ver["table_version"]
         logger.warning("Application version not found.")
-        return ""
+        return None
     except psycopg.errors.Error as err:
         logger.error("Error while reading application version: %s", repr(err), exc_info=err)
-        return ""
+        return None
 
 
 def table_exists(table_name: str, *, con: PGConnection) -> bool:
@@ -51,5 +53,36 @@ def table_exists(table_name: str, *, con: PGConnection) -> bool:
     return not not cur.rowcount
 
 
-def full_install() -> None:
-    """Creates all the tables required."""
+def full_install(*, con: PGConnection) -> None:
+    """
+    Creates all the tables required.
+
+    - Loads script file
+    - Execute statements into the database
+    """
+    path = os.path.dirname(__file__)
+    with open(os.path.join(path, 'create.sql'), 'r') as fp:
+        sql = fp.read()
+
+    cur = con.cursor().cursor
+    cur.execute(sql)
+
+
+def setup():
+    """
+    Prepare the database if needed
+
+    - Check the tables version
+    - If no version is installed, create all the tables
+    - If an outdated version is installed, updates the tables
+    - If the tables are the last version, do nothing
+    """
+    con: PGConnection = get_configuration().database  # type: ignore
+
+    current_version = check_tables(con=con)
+
+    if not current_version:
+        full_install(con=con)
+    # No update process ATM, it's the first version
+
+    return None
