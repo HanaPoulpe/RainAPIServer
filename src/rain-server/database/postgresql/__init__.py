@@ -5,8 +5,10 @@ import logging
 import psycopg
 import psycopg.rows
 
+from .install import setup
 from ..datatypes import *
 from ..errors import ConnectionException, DatabaseException, DataValidationException
+from ...configuration import get_configuration
 
 
 @contextlib.contextmanager
@@ -136,8 +138,20 @@ class PGConnection:
     """Manage PostgreSQL Connection"""
     def __init__(self, *args, **kwargs):
         """Pass psycopg connection arguments"""
-        self.__args = args
-        self.__kwargs = kwargs
+        if args or kwargs:
+            self.__args = args
+            self.__kwargs = kwargs
+        else:
+            configuration = get_configuration()
+            self.__args = []
+            self.__kwargs = {
+                "dbname": configuration.pg_dbname,
+                "user": configuration.pg_user,
+                "password": configuration.pg_password,
+                "host": configuration.pg_host,
+                "port": configuration.pg_port,
+            }
+
         self.__connection = None
 
     @context_manager()
@@ -167,3 +181,6 @@ class PGConnection:
     def open(self):
         if not self.__connection:
             self.__connection = psycopg.connect(*self.__args, **self.__kwargs)
+
+
+DRIVER = PGConnection

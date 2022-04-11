@@ -49,7 +49,7 @@ def table_exists(table_name: str, *, con: PGConnection) -> bool:
     cur = con.cursor().cursor
 
     cur.execute(f"SELECT table_name FROM pg_tables WHERE table_name = '{table_name}' "
-                f"AND schemaname = '{get_configuration().pg_schema}'")
+                f"AND schemaname = '{get_configuration().pg_dbname}'")
     return not not cur.rowcount
 
 
