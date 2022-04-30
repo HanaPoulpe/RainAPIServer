@@ -33,7 +33,7 @@ def get_measurements(
     """
     Read measurements
 
-    Location must be provided only by name of ids
+    Location must be provided only by name or ids
 
     Date are provided:
     - as ISO8601 formatted strings for absolute value.

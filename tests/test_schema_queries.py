@@ -1,18 +1,28 @@
 """Tests GraphQL Queries"""
+import datetime
 import importlib
 import unittest
 
 import src.rain_server.schema.query
 from src.rain_server.schema.query import get_sensors, get_locations, get_measurements
-from src.rain_server.schema.data_schemas import Location, MeasurementType
+from src.rain_server.schema.data_schemas import Location, MeasurementType, Measurement
 
 
 class TestQueries(unittest.TestCase):
     def setUp(self) -> None:
         """
         Reloads target module
+        Patch datetime.datetime.utcnow()
+        Patch datetime.date.today()
         """
         importlib.reload(src.rain_server.schema.query)
+        # ToDo: Patches
+
+    def tearDown(self) -> None:
+        """
+        Removes Patches
+        """
+        pass  # ToDo: Patches
 
     def test_get_locations(self):
         """
@@ -111,23 +121,132 @@ class TestQueries(unittest.TestCase):
 
     def test_get_sensors_id_not_exists(self):
         """
-        Test sensor query with non existing sensor id
+        Test sensor query with not existing location id
 
         Expect:
         - return being an empty list of sensors
         """
-        sensor = get_sensors(location_id="loc1")
+        sensor = get_sensors(location_id="no_loc")
 
         self.assertIsInstance(
             sensor,
             list,
             "get_sensors returns a list of sensors",
         )
-        self.assertEqual(
-            len(sensor),
-            0,
-            "get_sensors should give a list of 1 sensor",
+        self.assertListEqual(
+            sensor,
+            [],
+            "get_sensors should give an empty list.",
         )
+
+    def test_get_measurements_no_input(self):
+        """
+        Test empty measurement query
+
+        Expect:
+        - return an empty list
+        """
+        measurements = get_measurements(
+            measurements=[],
+        )
+
+        self.assertIsInstance(measurements, list, "get_measurements should return an empty list.")
+        self.assertListEqual(measurements, [])
+
+    def test_get_measurements_no_empty(self):
+        """
+        Test measurement query with no matching measurements
+
+        expect:
+        - return an empty list
+        """
+        measurements = get_measurements(
+            measurements=["no_values"],
+        )
+
+        self.assertIsInstance(measurements, list, "get_measurements should return an empty list.")
+        self.assertListEqual(measurements, [])
+
+    def test_get_measurements_not_empty(self):
+        """
+        Test measurements query with matching measurements
+
+        expect:
+        - [(Sensor("sen1"), MeasurementType("test_measurement"), 2022-04-30 00:00:00.0000, 123),
+           (Sensor("sen2"), MeasurementType("test_measurement"), 2022-04-30 01:01:01.0000, 456)]
+        """
+        measurements = get_measurements(
+            measurements=["test_measurement"],
+        )
+
+        self.assertIsInstance(measurements, list, "get_measurements should return a list.")
+        self.assertEqual(
+            len(measurements),
+            2,
+            "get_measurements should return 2 measurements."
+        )
+
+        measurement = measurements[0]
+        self.assertEqual(measurement.sensor.id, "sen1")
+        self.assertEqual(measurement.measurement.name, "test_measurement")
+        self.assertEqual(measurement.date, datetime.datetime(2022, 4, 30, 0, 0, 0, 0))
+        self.assertEqual(measurement.value, 123)
+
+        measurement = measurements[1]
+        self.assertEqual(measurement.sensor.id, "sen2")
+        self.assertEqual(measurement.measurement.name, "test_measurement")
+        self.assertEqual(measurement.date, datetime.datetime(2022, 4, 30, 1, 1, 1, 0))
+        self.assertEqual(measurement.value, 456)
+
+    def test_get_measurements_sensor_filter(self):
+        """
+        Test measurement query for sensor sen1
+
+        expect:
+        - [(Sensor("sen1"), MeasurementType("test_measurement"), 2022-04-30 00:00:00.0000, 123)]
+        """
+        measurements = get_measurements(
+            measurements=["test_measurement"],
+            sensor_ids=["sen1"],
+        )
+
+        self.assertIsInstance(measurements, list, "get_measurements should return a list.")
+        self.assertEqual(
+            len(measurements),
+            1,
+            "get_measurements should return 1 measurements."
+        )
+
+        measurement = measurements[0]
+        self.assertEqual(measurement.sensor.id, "sen1")
+        self.assertEqual(measurement.measurement.name, "test_measurement")
+        self.assertEqual(measurement.date, datetime.datetime(2022, 4, 30, 0, 0, 0, 0))
+        self.assertEqual(measurement.value, 123)
+
+    def test_get_measurements_location_name_filter(self):
+        """
+        Test measurement query for location name = test_location
+
+        expect:
+        - [(Sensor("sen1"), MeasurementType("test_measurement"), 2022-04-30 00:00:00.0000, 123)]
+        """
+        measurements = get_measurements(
+            measurements=["test_measurement"],
+            location_names=["test_location"],
+        )
+
+        self.assertIsInstance(measurements, list, "get_measurements should return a list.")
+        self.assertEqual(
+            len(measurements),
+            1,
+            "get_measurements should return 1 measurements."
+        )
+
+        measurement = measurements[0]
+        self.assertEqual(measurement.sensor.id, "sen1")
+        self.assertEqual(measurement.measurement.name, "test_measurement")
+        self.assertEqual(measurement.date, datetime.datetime(2022, 4, 30, 0, 0, 0, 0))
+        self.assertEqual(measurement.value, 123)
 
 
 if __name__ == "__main__":
