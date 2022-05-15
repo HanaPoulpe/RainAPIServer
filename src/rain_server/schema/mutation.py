@@ -25,4 +25,6 @@ def add_measurement(
 
 @strawberry.type
 class Mutation:
+    """GraphQL mutations"""
+
     add_measurement = strawberry.field(resolver=add_measurement)

@@ -4,8 +4,10 @@ import importlib
 import unittest
 
 import src.rain_server.schema.query
-from src.rain_server.schema.query import get_sensors, get_locations, get_measurements
-from src.rain_server.schema.data_schemas import Location, MeasurementType, Measurement
+from src.rain_server.schema.data_schemas import (Location, Measurement,
+                                                 MeasurementType)
+from src.rain_server.schema.query import (get_locations, get_measurements,
+                                          get_sensors)
 
 
 class TestQueries(unittest.TestCase):
@@ -247,6 +249,73 @@ class TestQueries(unittest.TestCase):
         self.assertEqual(measurement.measurement.name, "test_measurement")
         self.assertEqual(measurement.date, datetime.datetime(2022, 4, 30, 0, 0, 0, 0))
         self.assertEqual(measurement.value, 123)
+
+    def test_get_measurements_location_id_filter(self):
+        """
+        Test measurement query for location id = test_location
+
+        expect:
+        - [(Sensor("sen1"), MeasurementType("test_measurement"), 2022-04-30 00:00:00.0000, 123)]
+        """
+        measurements = get_measurements(
+            measurements=["test_measurement"],
+            location_ids=["loc1"],
+        )
+
+        self.assertIsInstance(measurements, list, "get_measurements should return a list.")
+        self.assertEqual(
+            len(measurements),
+            1,
+            "get_measurements should return 1 measurements."
+        )
+
+        measurement = measurements[0]
+        self.assertEqual(measurement.sensor.id, "sen1")
+        self.assertEqual(measurement.measurement.name, "test_measurement")
+        self.assertEqual(measurement.date, datetime.datetime(2022, 4, 30, 0, 0, 0, 0))
+        self.assertEqual(measurement.value, 123)
+
+    def test_get_measurements_location_id_and_name_filter(self):
+        """
+        Test measurement query with location id and location name
+
+        expect:
+        - raises ValueError
+        """
+        self.assertRaises(
+            ValueError,
+            get_measurements,
+            measurements=["test_measurement"],
+            location_ids=["loc1"],
+            location_names=["test_location"],
+        )
+
+    def test_get_measurements_invalid_period(self):
+        """
+        Test multiple invalid periods:
+        - Invalid start_time string
+        - Invalid end_time string
+        - start_time > end_time
+
+        expect:
+        - raises ValueError
+        """
+        params = [
+            {"start_time": "invalid"},
+            {"end_time": "invalid"},
+            {
+                "start_time": "NOW",
+                "end_time": "-1d",
+            },
+        ]
+
+        for p in params:
+            self.assertRaises(
+                ValueError,
+                get_measurements,
+                measurements=["test_measurement"],
+                **p,
+            )
 
 
 if __name__ == "__main__":

@@ -8,7 +8,7 @@ import unittest
 from datetime import datetime
 
 from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.asymmetric import rsa, padding
+from cryptography.hazmat.primitives.asymmetric import padding, rsa
 
 import src.rain_server.schema.mutation
 from src.rain_server.schema.mutation import add_measurement
@@ -125,7 +125,9 @@ class TestMutations(unittest.TestCase):
         The mutation should return an invalid measurement
         No data should be inserted in the measurement table
         """
-        from src.rain_server.schema.data_schemas import Measurement, MeasurementType, Sensor, Location
+        from src.rain_server.schema.data_schemas import (Location, Measurement,
+                                                         MeasurementType,
+                                                         Sensor)
         message = {
             "sensor_id": "test_sensor",
             "measurement_name": "unittest_count",

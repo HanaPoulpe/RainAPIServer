@@ -10,14 +10,16 @@ class MockCallable:
 
     >>> MockCallable()  # Creates a callable the keeps track of calls, returns nothing
     >>> MockCallable(return_value="return this")  # Always returns the same value
-    >>> MockCallable(return_value_list=["return_1", "return_2"]) # Returns the values from first to last,
+    >>> MockCallable(return_value_list=["return_1", "return_2"])
+    >>> # Returns the values from first to last,
     >>> # when last is reached: keeps returning it
     >>> MockCallable(side_effect=ValueError()) # Raises a value error at each call
-    >>> MockCallable(side_effect_list=[ValueError(), None])  # Raises a ValueError at the first call,
+    >>> MockCallable(side_effect_list=[ValueError(), None])  # Raises a ValueError at the first call
     >>> # then return the return_value
     """
 
-    calls_type = collections.namedtuple("CallsType", ["args", "kwargs", "return", "raise"])
+    calls_type = collections.namedtuple("CallsType", ["args", "kwargs", "return_value",
+                                                      "raise_error"])
 
     def __init__(
             self, *,

@@ -1,18 +1,21 @@
 """Defines GraphQL types"""
 import datetime
-from decimal import Decimal
 
 import strawberry
 
 
 @strawberry.type
 class Location:
+    """Sensor Location"""
+
     id: str
     name: str
 
 
 @strawberry.type
 class MeasurementType:
+    """Measurement Type"""
+
     name: str
     unit: str
     is_date: bool = False
@@ -20,6 +23,8 @@ class MeasurementType:
 
 @strawberry.type
 class Sensor:
+    """Sensor"""
+
     id: str
     name: str
     location: Location
@@ -28,6 +33,8 @@ class Sensor:
 
 @strawberry.type
 class Measurement:
+    """Measurement"""
+
     sensor: Sensor
     measurement: MeasurementType
     date: datetime.datetime

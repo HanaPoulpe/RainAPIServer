@@ -1,7 +1,7 @@
 """Defines queries"""
 import strawberry
 
-from .data_schemas import Location, Sensor, Measurement
+from .data_schemas import Location, Measurement, Sensor
 
 
 def get_locations() -> list[Location]:
@@ -61,6 +61,8 @@ def get_measurements(
 
 @strawberry.type
 class Query:
+    """GraphQL Queries"""
+
     locations: list[Location] = strawberry.field(resolver=get_locations)
     sensors: list[Sensor] = strawberry.field(resolver=get_sensors)
     measurements: list[Measurement] = strawberry.field(resolver=get_measurements)

@@ -1,9 +1,9 @@
 """Test the main"""
 import unittest
 
-import src.rain_server.main as main
-
 import stubber
+
+import src.rain_server.main as main
 
 
 class TestMain(unittest.TestCase):

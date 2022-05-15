@@ -16,7 +16,8 @@ def get_db_config() -> config.ConfigurationSet:
     Configuration file is stored in the default configuration path and name db.json.
 
     Valid parameters are:
-    - dialect: "sqlite"|"postgresql" or any dialect supported by sqlalchemy (other dialect must be manually installed).
+    - dialect: "sqlite"|"postgresql" or any dialect supported by sqlalchemy
+    (other dialect must be manually installed).
     - engine: None or any engine supported by sqlalchemy (must be manually installed).
     - user: DB Username if any.
     - password: DB password if any.
@@ -29,6 +30,8 @@ def get_db_config() -> config.ConfigurationSet:
     1. Environment variables
     2. Configuration file
     3. Default configuration
+
+    :return: ConfigurationSet
     """
     default = {
         "dialect": "sqlite",
@@ -52,7 +55,7 @@ def get_db_url(cfg: config.ConfigurationSet) -> sqlalchemy.engine.URL:
     """Creates the database URL from configuration"""
     if cfg.dialect == "sqlite":
         return sqlalchemy.engine.URL(
-            cfg.dialect, database=":memory:"
+            cfg.dialect, database=":memory:",
         )
 
     return sqlalchemy.engine.URL(
