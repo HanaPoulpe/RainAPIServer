@@ -58,7 +58,7 @@ class TestMutations(unittest.TestCase):
         The mutation returns an InvalidSensorError.
         No data should be inserted in the measurement table
         """
-        from src.rain_server.schema.errors import InvalidSenorError
+        from src.rain_server.schema.errors import InvalidSensorError
         message = {
             "sensor_id": "invalid",
             "measurement_name": "unittest_count",
@@ -66,7 +66,7 @@ class TestMutations(unittest.TestCase):
             "measurement_value": 1,
         }
         self.assertRaises(
-            InvalidSenorError,
+            InvalidSensorError,
             add_measurement,
             signature=self.sign(message),
             **message,

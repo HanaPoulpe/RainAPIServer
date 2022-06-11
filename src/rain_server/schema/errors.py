@@ -3,16 +3,11 @@ Defines schema related errors
 
 Error created there will be sent to the client
 """
+from cryptography.exceptions import InvalidSignature # noqa
 
 
-class InvalidSenorError(Exception):
+class InvalidSensorError(Exception):
     """Invalid Sensor Error"""
-
-    pass
-
-
-class InvalidSignatureError(Exception):
-    """Invalid Signature Error"""
 
     pass
 
