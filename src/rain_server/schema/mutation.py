@@ -1,18 +1,12 @@
 """Defines the mutations"""
-import base64
 import datetime
-import json
 
-from cryptography.hazmat.primitives.serialization import load_der_public_key
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.asymmetric import padding
-from cryptography.hazmat.backends import default_backend
-import sqlalchemy
 import strawberry
 
-from .data_schemas import Measurement
-from .errors import InvalidSensorError, InvalidSignature
-from ..configuration import get_logger, get_database
+from ..authenticate import check_signature
+from ..configuration import get_database, get_logger
+from .data_schemas import Location, Measurement, MeasurementType, Sensor
+from .errors import AuthenticationError, InvalidSensorError
 
 
 def add_measurement(
@@ -34,35 +28,21 @@ def add_measurement(
 
     query = database.select_sensors_measurement(sensor_id, measurement_name)
 
-    message = f"{measurement_date}{measurement_date}{measurement_value}{sensor_id}".encode("utf-8")
+    message = f"{measurement_date}{measurement_date}{measurement_value}{sensor_id}"
 
     logger.info("Connecting to database...")
     with database.engine.connect() as conn:
         d_sensor = conn.execute(query).first()
 
         if not d_sensor:
-            error_msg = f"No matching sensor or measurement found for {sensor_id=}, " \
-                        f"{measurement_name=}"
+            error_msg = (f"No matching sensor or measurement found for {sensor_id=}, "
+                         f"{measurement_name=}")
             logger.error(error_msg)
             raise InvalidSensorError(error_msg)
 
         logger.info("Checking signature...")
-        pubkey = load_der_public_key(base64.b64decode(d_sensor.pubkey), default_backend())
-        signature = base64.b64decode(signature)
-        try:
-            pubkey.verify(
-                signature,
-                message,
-                padding.PSS(
-                    mgf=padding.MGF1(hashes.SHA256()),
-                    salt_length=padding.PSS.MAX_LENGTH,
-                ),
-                hashes.SHA256(),
-            )
-        except InvalidSignature as err:
-            error_msg = f"Signature verification failed."
-            logger.error(error_msg)
-            raise err
+        if not check_signature(message, d_sensor.public_key, signature):
+            raise AuthenticationError("Signature verification failed.")
 
         insert = database.measurements.insert().values(
             location_id=d_sensor.location_id,
@@ -87,8 +67,25 @@ def add_measurement(
         )
         conn.execute(insert)
 
-
-
+        measurement_type = MeasurementType(
+            name=d_sensor.measurement_name,
+            unit=d_sensor.unit,
+            default_format=d_sensor.format,
+        )
+        return Measurement(
+            sensor=Sensor(
+                id=d_sensor.sensor_id,
+                name=d_sensor.sensor_name,
+                location=Location(
+                    id=d_sensor.location_id,
+                    name=d_sensor.locactio_name,
+                ),
+                measurements=[measurement_type],
+            ),
+            measurement=measurement_type,
+            date=measurement_date,
+            value=measurement_value,
+        )
 
 
 @strawberry.type

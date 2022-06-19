@@ -1,5 +1,4 @@
 """Create DB engine from configuration"""
-import io
 import os.path
 
 import config
@@ -41,14 +40,15 @@ def get_db_config() -> config.ConfigurationSet:
     }
 
     try:
-        json = open(os.path.join(CONFIG_PATH, "db.json"), "r")
+        with open(os.path.join(CONFIG_PATH, "db.json"), "r") as fp:
+            json_file = fp.read()
     except FileNotFoundError:
         # Ignores the configuration if the file do not exist.
-        json = io.StringIO("{}")
+        json_file = "{}"
 
     return config.ConfigurationSet(
         config.config_from_env(prefix="RAIN_DB"),
-        config.config_from_json(json, read_from_file=False),
+        config.config_from_json(json_file, read_from_file=False),
         config.config_from_dict(default),
     )
 
@@ -83,22 +83,30 @@ def get_engine() -> sqlalchemy.engine.Engine:
 
 
 class DataBase:
-    """
-    Defines all database tables for the engine.
-    """
+    """Defines all database tables for the engine."""
 
     def __init__(self, engine: sqlalchemy.engine.Engine):
+        """
+        Setups database engine.
+
+        :param engine:SQLAlchemy engine
+        """
         self.engine = engine
         self.meta = sqlalchemy.MetaData()
         self.__create_sensors()
+        self.__create_locations()
+        self.__create_measurements()
+        self.__create_measurement_types()
+        self.__create_sensors_measurements()
+        self.setup()
 
     def __create_sensors(self):
         """Creates the sensor table."""
         self._sensors = sqlalchemy.Table(
             "o_sensors",
             self.meta,
-            sqlalchemy.Column("sensor_id", sqlalchemy.String, sqlalchemy.PrimaryKeyConstraint),
-            sqlalchemy.Column("sensor_name", sqlalchemy.String, sqlalchemy.UniqueConstraint),
+            sqlalchemy.Column("sensor_id", sqlalchemy.String, primary_key=True),
+            sqlalchemy.Column("sensor_name", sqlalchemy.String),
             sqlalchemy.Column("location_id", sqlalchemy.String),
             sqlalchemy.Column("pubkey", sqlalchemy.String),
             sqlalchemy.Column("is_active", sqlalchemy.CHAR),
@@ -129,7 +137,7 @@ class DataBase:
             sqlalchemy.Column(
                 "measurement_name",
                 sqlalchemy.String,
-                sqlalchemy.PrimaryKeyConstraint,
+                primary_key=True,
             ),
             sqlalchemy.Column("unit", sqlalchemy.String),
             sqlalchemy.Column("string_format", sqlalchemy.String),
@@ -142,13 +150,24 @@ class DataBase:
         self._sensor_measurements = sqlalchemy.Table(
             "r_sensor_measurements",
             self.meta,
-            sqlalchemy.Column("sensor_id", sqlalchemy.String, sqlalchemy.PrimaryKeyConstraint),
+            sqlalchemy.Column("sensor_id", sqlalchemy.String, primary_key=True),
             sqlalchemy.Column(
                 "measurement_name",
                 sqlalchemy.String,
-                sqlalchemy.PrimaryKeyConstraint,
+                primary_key=True,
             ),
-            sqlalchemy.Column("is_active", sqlalchemy.CHAR),
+            sqlalchemy.Column("is_date", sqlalchemy.CHAR),
+            sqlalchemy.Column("d_created_date_utc", sqlalchemy.DateTime),
+            sqlalchemy.Column("d_updated_date_utc", sqlalchemy.DateTime),
+        )
+
+    def __create_locations(self):
+        """Locations list"""
+        self._locations = sqlalchemy.Table(
+            "d_locations",
+            self.meta,
+            sqlalchemy.Column("location_id", sqlalchemy.String, primary_key=True),
+            sqlalchemy.Column("location_name", sqlalchemy.String),
             sqlalchemy.Column("d_created_date_utc", sqlalchemy.DateTime),
             sqlalchemy.Column("d_updated_date_utc", sqlalchemy.DateTime),
         )
@@ -159,39 +178,55 @@ class DataBase:
 
     @property
     def sensors(self) -> sqlalchemy.Table:
+        """Sensors table."""
         return self._sensors
 
     @property
     def measurements(self) -> sqlalchemy.Table:
+        """Measurements table."""
         return self._measurements
 
     @property
     def measurement_types(self) -> sqlalchemy.Table:
+        """Measurement types table."""
         return self._measurement_types
 
     @property
     def sensor_measurements(self) -> sqlalchemy.Table:
+        """Measurements table."""
         return self._sensor_measurements
 
+    @property
+    def locations(self) -> sqlalchemy.Table:
+        """Location table."""
+        return self._locations
+
     def select_sensors_measurement(self, sensor_id: str, measurement_name: str):
+        """
+        Retrieve sensor, measurements and location details.
+
+        :param sensor_id: Sensor ID
+        :param measurement_name: Name for the measurement
+        :return: SQLAlchemy Select statement
+        """
         return self.sensors.select().where(
             sqlalchemy.and_(
                 self.sensors.c.sensor_id == sensor_id,
                 self.sensors.c.is_active != "N",
-            )
+            ),
         ).join(
             self.sensor_measurements,
-            sqlalchemy.and_(
-                self.sensors.c.sensor_id == self.sensor_measurements.c.sensor_id,
-                self.sensor_measurements.c.is_active != "N",
-            )
+            self.sensors.c.sensor_id == self.sensor_measurements.c.sensor_id,
         ).join(
             self.measurement_types,
             sqlalchemy.and_(
                 self.sensor_measurements.c.measurement_name == measurement_name,
-                self.measurement_types.c.measurement_name ==
-                self.sensor_measurements.c.measurement_name,
-            )
+                self.measurement_types.c.measurement_name
+                == self.sensor_measurements.c.measurement_name,  # noqa
+            ),
+        ).join(
+            self.locations,
+            self.sensors.c.location_id == self.locations.c.location_id,
         )
 
     def get_session(self) -> sqlalchemy.orm.Session:

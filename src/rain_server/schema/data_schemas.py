@@ -18,7 +18,7 @@ class MeasurementType:
 
     name: str
     unit: str
-    is_date: bool = False
+    default_format: str
 
 
 @strawberry.type
